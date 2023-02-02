@@ -1,11 +1,16 @@
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { StatusBar } from 'react-native';
+import { Button, StatusBar, Text } from 'react-native';
 
 import LoginScreen from './src/screens/LoginScreen';
 import SignupScreen from './src/screens/SignupScreen';
 import WelcomeScreen from './src/screens/WelcomeScreen';
 import { GlobalStyles } from './src/constants/styles';
+import AuthContextProvider, { AuthContext } from './src/store/auth-context';
+import React, { useContext, useEffect, useState } from 'react';
+import IconButton from './src/components/ui/IconButton';
+
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const Stack = createNativeStackNavigator();
 
@@ -25,6 +30,7 @@ function AuthStack() {
 }
 
 function AuthenticatedStack() {
+  const authCtx = useContext(AuthContext);
   return (
     <Stack.Navigator
       screenOptions={{
@@ -33,25 +39,81 @@ function AuthenticatedStack() {
         contentStyle: { backgroundColor: GlobalStyles.colors.primary100 },
       }}
     >
-      <Stack.Screen name="Welcome" component={WelcomeScreen} />
+      <Stack.Screen name="Welcome" component={WelcomeScreen} options={{
+        headerRight: ({ tintColor }) => <Button title="logout" color={tintColor} onPress={authCtx.logout} />
+      }} />
     </Stack.Navigator>
   );
 }
 
 function Navigation() {
+  const authCtx = useContext(AuthContext);
+
   return (
     <NavigationContainer>
-      <AuthStack />
+      {!authCtx.isAuthenticated && <AuthStack />}
+      {authCtx.isAuthenticated && <AuthenticatedStack />}
     </NavigationContainer>
   );
 }
+
+function Root() {
+  const [isTryingLogin, setIsTryingLogin] = useState(true);
+  const authCtx = useContext(AuthContext);
+
+  useEffect(() => {
+    async function fetchToken() {
+      const storedToken = await AsyncStorage.getItem('token');
+      if (storedToken) {
+        authCtx.authenticate(storedToken);
+      }
+      setIsTryingLogin(false);
+    }
+    fetchToken();
+  }, []);
+
+  if (isTryingLogin) {
+    return <Text>Loading...</Text>;
+  }
+
+  return <Navigation />;
+}
+
+// function Home() {
+//   const isDarkMode = useColorScheme() === 'dark';
+
+//   const backgroundStyle = {
+//     backgroundColor: isDarkMode ? Colors.darker : Colors.lighter,
+//   };
+
+//   return (
+//     <>
+//       <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
+//       <Text>Test</Text>
+//       <NavigationContainer>
+//         <BottomTabs.Navigator screenOptions={{
+//           headerStyle: { backgroundColor: GlobalStyles.colors.primary500 },
+//           headerTintColor: 'white',
+//           tabBarStyle: { backgroundColor: GlobalStyles.colors.primary500 },
+//           tabBarActiveTintColor: GlobalStyles.colors.accent500,
+//         }}>
+//           <BottomTabs.Screen name="Home" component={Home} />
+//           <BottomTabs.Screen name="Profile" component={Profile} />
+//           <BottomTabs.Screen name="Workout" component={Workout} />
+//         </BottomTabs.Navigator>
+//       </NavigationContainer>
+//     </>
+
+//   );
+// }
 
 export default function App() {
   return (
     <>
       <StatusBar style="light" />
-
-      <Navigation />
+      <AuthContextProvider>
+        <Root />
+      </AuthContextProvider>
     </>
   );
 }
